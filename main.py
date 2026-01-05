@@ -4,20 +4,20 @@ import torch
 
 from train_eval import train_one_dataset
 
-DATA_FILE = "data/副本50v.xlsx"
+DATA_FILE = "data/副本30v.xlsx"
 KNOWN_LEN = 10
 SEQ_LEN = 10
 PRED_LEN = 1
 BATCH_SIZE = 64
-EPOCHS = 40
-LR = 2e-3
+EPOCHS = 150
+LR = 1e-3
 D_MODEL = 128
 N_HEADS = 4
 E_LAYERS = 1
 D_FF = 256
 DROPOUT = 0.0
 FACTOR = 5
-PATIENCE = 20
+PATIENCE = 150
 SEED = 42
 
 def main():
@@ -47,9 +47,12 @@ def main():
     )
 
     print(f"\n[{res.dataset_name}]")
+    print(f"epochs_trained={res.epochs_trained}/{EPOCHS}")
     print(f"loss(train_last_epoch)={res.train_loss:.6f}  loss(val_last_epoch)={res.val_loss:.6f}")
     print(f"mse(test)={res.test_mse:.6f}  mae(test)={res.test_mae:.6f}  rmse(test)={res.test_rmse:.6f}")
     print(f"plot_saved={res.plot_path}")
+    print(f"error_hist_saved={res.error_hist_path}")
+    print(f"loss_curve_saved={res.loss_curve_path}")
 
 
 if __name__ == "__main__":

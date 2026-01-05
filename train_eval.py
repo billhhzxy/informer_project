@@ -21,6 +21,9 @@ class RunResult:
     test_mae: float
     test_rmse: float
     plot_path: str
+    error_hist_path: str
+    loss_curve_path: str
+    epochs_trained: int
 
 
 def evaluate_regression(y_true: np.ndarray, y_pred: np.ndarray):
@@ -98,8 +101,11 @@ def train_one_dataset(
     bad_epochs = 0
     last_train_loss = float("inf")
     last_val_loss = float("inf")
+    train_mse_history = []
+    epochs_trained = 0
 
     for _epoch in range(1, epochs + 1):
+        epochs_trained = _epoch
         model.train()
         train_losses = []
         for xb, yb in train_loader:
@@ -123,6 +129,11 @@ def train_one_dataset(
                 loss = criterion(pred, yb)
                 val_losses.append(loss.item())
         last_val_loss = float(np.mean(val_losses))
+        scale2 = float(y_scaler.scale_[0] ** 2)
+        train_mse = last_train_loss * scale2
+        val_mse = last_val_loss * scale2
+        train_mse_history.append(train_mse)
+        print(f"epoch={_epoch:03d}/{epochs}  train_mse={train_mse:.6f}  val_mse={val_mse:.6f}")
 
         if last_val_loss < best_val - 1e-8:
             best_val = last_val_loss
@@ -189,6 +200,28 @@ def train_one_dataset(
     fig.savefig(out_path, dpi=150)
     plt.close(fig)
 
+    err = y_pred - y_true
+    fig = plt.figure(figsize=(10, 5))
+    plt.hist(err, bins=60, color="#b55a5a", alpha=0.85, label="Error Distribution")
+    plt.xlabel("Error Value")
+    plt.ylabel("Number")
+    plt.legend()
+    fig.tight_layout()
+    err_path = result_dir / f"{path.stem}_error_hist.png"
+    fig.savefig(err_path, dpi=150)
+    plt.close(fig)
+
+    fig = plt.figure(figsize=(12, 6))
+    epochs_axis = np.arange(1, len(train_mse_history) + 1)
+    plt.plot(epochs_axis, train_mse_history, color="green", label="Train MSE", linewidth=2.0)
+    plt.xlabel("Epoch")
+    plt.ylabel("Mean Squared Error (MSE)")
+    plt.legend()
+    fig.tight_layout()
+    loss_curve_path = result_dir / f"{path.stem}_loss_curve.png"
+    fig.savefig(loss_curve_path, dpi=150)
+    plt.close(fig)
+
     return RunResult(
         dataset_name=path.name,
         train_loss=last_train_loss,
@@ -197,4 +230,7 @@ def train_one_dataset(
         test_mae=mae,
         test_rmse=rmse,
         plot_path=str(out_path),
+        error_hist_path=str(err_path),
+        loss_curve_path=str(loss_curve_path),
+        epochs_trained=epochs_trained,
     )
