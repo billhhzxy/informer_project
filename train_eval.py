@@ -53,8 +53,8 @@ def train_one_dataset(
     set_seed(seed)
     x_raw, y_raw = read_dataset(path)
     n = x_raw.shape[0]
-    train_end = int(n * 0.7)
-    val_end = int(n * 0.8)
+    train_end = int(n * 0.9)
+    val_end = int(n * 0.95)
 
     if pred_len != 1:
         raise ValueError("当前实现用于逐点预测曲线，pred_len 必须为 1")
@@ -137,11 +137,11 @@ def train_one_dataset(
         model.load_state_dict(best_state)
 
     model.eval()
-    start_idx = max(known_len, seq_len)
+    start_idx = max(known_len, seq_len - 1)
     if n <= start_idx:
         raise ValueError(f"known_len/seq_len 过大，无法从 {start_idx + 1} 开始预测（n={n}）")
 
-    infer_x = np.stack([x[t - seq_len : t] for t in range(start_idx, n)], axis=0)
+    infer_x = np.stack([x[t - seq_len + 1 : t + 1] for t in range(start_idx, n)], axis=0)
     infer_loader = DataLoader(
         TimeSeriesWindowDataset(infer_x, np.zeros((infer_x.shape[0], 1), dtype=np.float32)),
         batch_size=batch_size,

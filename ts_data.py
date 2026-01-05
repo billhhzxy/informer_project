@@ -34,16 +34,19 @@ def build_windows(
     train_end: int,
     val_end: int,
 ):
+    if pred_len != 1:
+        raise ValueError("当前实现用于逐点预测曲线，pred_len 必须为 1")
+
     train_x, train_y = [], []
     val_x, val_y = [], []
     test_x, test_y = [], []
 
     n = x.shape[0]
-    last_start = n - (seq_len + pred_len) + 1
+    last_start = n - seq_len + 1
     for i in range(last_start):
-        target_idx = i + seq_len + pred_len - 1
+        target_idx = i + seq_len - 1
         x_win = x[i : i + seq_len]
-        y_win = y[i + seq_len : i + seq_len + pred_len].reshape(-1)
+        y_win = y[target_idx : target_idx + 1].reshape(-1)
         if target_idx < train_end:
             train_x.append(x_win)
             train_y.append(y_win)
@@ -76,4 +79,3 @@ def read_dataset(path: Path) -> tuple[np.ndarray, np.ndarray]:
     x = used.iloc[:, :4].to_numpy(dtype=np.float32)
     y = used.iloc[:, 4].to_numpy(dtype=np.float32).reshape(-1, 1)
     return x, y
-

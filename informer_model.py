@@ -231,6 +231,7 @@ class InformerEncoderRegressor(nn.Module):
         pred_len: int,
     ):
         super().__init__()
+        self.skip = nn.Linear(c_in, pred_len)
         self.enc_embedding = DataEmbedding(c_in=c_in, d_model=d_model, dropout=dropout)
 
         attn_layers = []
@@ -252,9 +253,9 @@ class InformerEncoderRegressor(nn.Module):
         self.projection = nn.Linear(d_model, pred_len)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        skip = self.skip(x[:, -1, :])
         x = self.enc_embedding(x)
         enc_out, _ = self.encoder(x)
         last = enc_out[:, -1, :]
-        out = self.projection(last)
+        out = self.projection(last) + skip
         return out
-
