@@ -4,7 +4,7 @@ import torch
 
 from train_eval import train_one_dataset
 
-DATA_FILE = "data/副本30v.xlsx"
+DATA_FILE = "data/副本50v.xlsx"
 KNOWN_LEN = 10
 SEQ_LEN = 10
 PRED_LEN = 1

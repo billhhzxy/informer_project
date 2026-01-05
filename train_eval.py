@@ -165,16 +165,27 @@ def train_one_dataset(
     y_pred_full = np.full((n,), np.nan, dtype=np.float32)
     y_pred_full[start_idx:] = y_pred.astype(np.float32)
 
+    name_lower = path.stem.lower()
+    if "30" in name_lower:
+        voltage_dir = "30v"
+    elif "50" in name_lower:
+        voltage_dir = "50v"
+    elif "80" in name_lower:
+        voltage_dir = "80v"
+    else:
+        voltage_dir = "other"
+
     fig = plt.figure(figsize=(10, 5))
     x_axis = np.arange(1, n + 1)
-    plt.plot(x_axis, y_true_full, label="True Values", linewidth=1.5)
-    plt.plot(x_axis, y_pred_full, label="Predictions", linewidth=1.0)
+    plt.plot(x_axis, y_true_full, color="blue", label="True Values", linewidth=1.5)
+    plt.plot(x_axis, y_pred_full, color="red", label="Predictions", linewidth=1.0)
     plt.xlabel("Sample Number")
-    plt.ylabel("Target")
-    plt.title(path.stem)
+    plt.ylabel("Movement Time/s")
     plt.legend()
     fig.tight_layout()
-    out_path = path.with_name(f"{path.stem}_pred_vs_true.png")
+    result_dir = path.parent.parent / "data_result" / voltage_dir
+    result_dir.mkdir(parents=True, exist_ok=True)
+    out_path = result_dir / f"{path.stem}_pred_vs_true.png"
     fig.savefig(out_path, dpi=150)
     plt.close(fig)
 
