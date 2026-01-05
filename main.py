@@ -5,7 +5,8 @@ import torch
 from train_eval import train_one_dataset
 
 DATA_FILE = "data/副本50v.xlsx"
-MODELS = ["informer", "lstm", "itransformer", "fedformer"]
+MODELS = ["dbscan_pca_informer","lstm","itransformer","fedformer","informer"]
+#MODELS = ["dbscan_pca_informer"]
 KNOWN_LEN = 10
 SEQ_LEN = 10
 PRED_LEN = 1

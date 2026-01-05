@@ -5,6 +5,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torch.nn as nn
+from sklearn.cluster import DBSCAN
+from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 from torch.utils.data import DataLoader
 
@@ -37,6 +39,61 @@ def evaluate_regression(y_true: np.ndarray, y_pred: np.ndarray):
     return mse, mae, rmse
 
 
+def _dbscan_clean_x(x_raw: np.ndarray, train_end: int) -> np.ndarray:
+    x_raw = x_raw.astype(np.float32, copy=False)
+    scaler = StandardScaler()
+    x_train_scaled = scaler.fit_transform(x_raw[:train_end])
+
+    best_eps = None
+    best_noise_ratio = None
+    candidates = [0.3, 0.5, 0.8, 1.0, 1.2]
+    for eps in candidates:
+        labels = DBSCAN(eps=float(eps), min_samples=5).fit_predict(x_train_scaled)
+        noise_ratio = float(np.mean(labels == -1))
+        n_clusters = len(set(labels)) - (1 if -1 in labels else 0)
+        if n_clusters >= 1 and 0.0 <= noise_ratio <= 0.2:
+            if best_noise_ratio is None or noise_ratio < best_noise_ratio:
+                best_eps = float(eps)
+                best_noise_ratio = noise_ratio
+
+    if best_eps is None:
+        return x_raw.copy()
+
+    x_scaled = scaler.transform(x_raw)
+    labels_all = DBSCAN(eps=best_eps, min_samples=5).fit_predict(x_scaled)
+    core_mask = labels_all != -1
+    if not np.any(core_mask):
+        return x_raw.copy()
+
+    x_clean = x_raw.copy()
+    core_indices = np.where(core_mask)[0]
+    outlier_indices = np.where(~core_mask)[0]
+    for i in outlier_indices:
+        pos = int(np.searchsorted(core_indices, i))
+        left = core_indices[pos - 1] if pos - 1 >= 0 else None
+        right = core_indices[pos] if pos < len(core_indices) else None
+        if left is None:
+            nearest = int(right)
+        elif right is None:
+            nearest = int(left)
+        else:
+            nearest = int(left) if (i - left) <= (right - i) else int(right)
+        x_clean[i] = x_clean[nearest]
+
+    return x_clean
+
+
+def _pca_transform_x(x_raw: np.ndarray, train_end: int) -> np.ndarray:
+    x_raw = x_raw.astype(np.float32, copy=False)
+    scaler = StandardScaler()
+    x_train_scaled = scaler.fit_transform(x_raw[:train_end])
+    pca = PCA(n_components=0.95, svd_solver="full")
+    pca.fit(x_train_scaled)
+    x_scaled = scaler.transform(x_raw)
+    x_pca = pca.transform(x_scaled)
+    return x_pca.astype(np.float32, copy=False)
+
+
 def train_one_dataset(
     path: Path,
     model_name: str,
@@ -65,6 +122,11 @@ def train_one_dataset(
     if pred_len != 1:
         raise ValueError("当前实现用于逐点预测曲线，pred_len 必须为 1")
 
+    model_name_norm = model_name.strip().lower()
+    if model_name_norm in ["dbscan-pca-informer", "dbscan_pca_informer", "dbscanpcainformer"]:
+        x_raw = _pca_transform_x(_dbscan_clean_x(x_raw, train_end=train_end), train_end=train_end)
+        model_name_norm = "dbscan_pca_informer"
+
     x_scaler = StandardScaler()
     y_scaler = StandardScaler()
     x_scaler.fit(x_raw[:train_end])
@@ -85,8 +147,19 @@ def train_one_dataset(
     val_loader = DataLoader(TimeSeriesWindowDataset(val_x, val_y), batch_size=batch_size, shuffle=False)
 
     c_in = int(train_x.shape[-1])
-    model_name_norm = model_name.strip().lower()
     if model_name_norm == "informer":
+        model = InformerEncoderRegressor(
+            c_in=c_in,
+            d_model=d_model,
+            n_heads=n_heads,
+            e_layers=e_layers,
+            d_ff=d_ff,
+            dropout=dropout,
+            factor=factor,
+            activation="gelu",
+            pred_len=pred_len,
+        )
+    elif model_name_norm == "dbscan_pca_informer":
         model = InformerEncoderRegressor(
             c_in=c_in,
             d_model=d_model,
