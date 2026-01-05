@@ -9,12 +9,14 @@ from sklearn.preprocessing import StandardScaler
 from torch.utils.data import DataLoader
 
 from informer_model import InformerEncoderRegressor
+from models import FEDformerRegressor, ITransformerRegressor, LSTMRegressor
 from ts_data import TimeSeriesWindowDataset, build_windows, read_dataset, set_seed
 
 
 @dataclass
 class RunResult:
     dataset_name: str
+    model_name: str
     train_loss: float
     val_loss: float
     test_mse: float
@@ -37,6 +39,7 @@ def evaluate_regression(y_true: np.ndarray, y_pred: np.ndarray):
 
 def train_one_dataset(
     path: Path,
+    model_name: str,
     seq_len: int,
     pred_len: int,
     known_len: int,
@@ -81,17 +84,52 @@ def train_one_dataset(
     train_loader = DataLoader(TimeSeriesWindowDataset(train_x, train_y), batch_size=batch_size, shuffle=True)
     val_loader = DataLoader(TimeSeriesWindowDataset(val_x, val_y), batch_size=batch_size, shuffle=False)
 
-    model = InformerEncoderRegressor(
-        c_in=train_x.shape[-1],
-        d_model=d_model,
-        n_heads=n_heads,
-        e_layers=e_layers,
-        d_ff=d_ff,
-        dropout=dropout,
-        factor=factor,
-        activation="gelu",
-        pred_len=pred_len,
-    ).to(device)
+    c_in = int(train_x.shape[-1])
+    model_name_norm = model_name.strip().lower()
+    if model_name_norm == "informer":
+        model = InformerEncoderRegressor(
+            c_in=c_in,
+            d_model=d_model,
+            n_heads=n_heads,
+            e_layers=e_layers,
+            d_ff=d_ff,
+            dropout=dropout,
+            factor=factor,
+            activation="gelu",
+            pred_len=pred_len,
+        )
+    elif model_name_norm == "lstm":
+        model = LSTMRegressor(
+            c_in=c_in,
+            d_model=d_model,
+            e_layers=e_layers,
+            dropout=dropout,
+            pred_len=pred_len,
+        )
+    elif model_name_norm in ["itransformer", "i-transformer", "i_transformer"]:
+        model = ITransformerRegressor(
+            c_in=c_in,
+            seq_len=seq_len,
+            d_model=d_model,
+            n_heads=n_heads,
+            e_layers=e_layers,
+            d_ff=d_ff,
+            dropout=dropout,
+            pred_len=pred_len,
+        )
+    elif model_name_norm in ["fedformer", "fed"]:
+        model = FEDformerRegressor(
+            c_in=c_in,
+            d_model=d_model,
+            e_layers=e_layers,
+            d_ff=d_ff,
+            dropout=dropout,
+            pred_len=pred_len,
+        )
+    else:
+        raise ValueError(f"未知模型: {model_name}")
+
+    model = model.to(device)
 
     criterion = nn.MSELoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
@@ -196,7 +234,8 @@ def train_one_dataset(
     fig.tight_layout()
     result_dir = path.parent.parent / "data_result" / voltage_dir
     result_dir.mkdir(parents=True, exist_ok=True)
-    out_path = result_dir / f"{path.stem}_pred_vs_true.png"
+    file_tag = model_name_norm.replace("-", "").replace("_", "")
+    out_path = result_dir / f"{path.stem}_{file_tag}_pred_vs_true.png"
     fig.savefig(out_path, dpi=150)
     plt.close(fig)
 
@@ -207,7 +246,7 @@ def train_one_dataset(
     plt.ylabel("Number")
     plt.legend()
     fig.tight_layout()
-    err_path = result_dir / f"{path.stem}_error_hist.png"
+    err_path = result_dir / f"{path.stem}_{file_tag}_error_hist.png"
     fig.savefig(err_path, dpi=150)
     plt.close(fig)
 
@@ -218,12 +257,13 @@ def train_one_dataset(
     plt.ylabel("Mean Squared Error (MSE)")
     plt.legend()
     fig.tight_layout()
-    loss_curve_path = result_dir / f"{path.stem}_loss_curve.png"
+    loss_curve_path = result_dir / f"{path.stem}_{file_tag}_loss_curve.png"
     fig.savefig(loss_curve_path, dpi=150)
     plt.close(fig)
 
     return RunResult(
         dataset_name=path.name,
+        model_name=model_name_norm,
         train_loss=last_train_loss,
         val_loss=last_val_loss,
         test_mse=mse,

@@ -4,7 +4,8 @@ import torch
 
 from train_eval import train_one_dataset
 
-DATA_FILE = "data/副本30v.xlsx"
+DATA_FILE = "data/副本50v.xlsx"
+MODELS = ["informer", "lstm", "itransformer", "fedformer"]
 KNOWN_LEN = 10
 SEQ_LEN = 10
 PRED_LEN = 1
@@ -27,32 +28,34 @@ def main():
     if not data_path.exists():
         raise FileNotFoundError(f"找不到数据文件: {DATA_FILE}")
 
-    res = train_one_dataset(
-        path=data_path,
-        seq_len=SEQ_LEN,
-        pred_len=PRED_LEN,
-        known_len=KNOWN_LEN,
-        batch_size=BATCH_SIZE,
-        epochs=EPOCHS,
-        lr=LR,
-        d_model=D_MODEL,
-        n_heads=N_HEADS,
-        e_layers=E_LAYERS,
-        d_ff=D_FF,
-        dropout=DROPOUT,
-        factor=FACTOR,
-        patience=PATIENCE,
-        device=device,
-        seed=SEED,
-    )
+    for model_name in MODELS:
+        res = train_one_dataset(
+            path=data_path,
+            model_name=model_name,
+            seq_len=SEQ_LEN,
+            pred_len=PRED_LEN,
+            known_len=KNOWN_LEN,
+            batch_size=BATCH_SIZE,
+            epochs=EPOCHS,
+            lr=LR,
+            d_model=D_MODEL,
+            n_heads=N_HEADS,
+            e_layers=E_LAYERS,
+            d_ff=D_FF,
+            dropout=DROPOUT,
+            factor=FACTOR,
+            patience=PATIENCE,
+            device=device,
+            seed=SEED,
+        )
 
-    print(f"\n[{res.dataset_name}]")
-    print(f"epochs_trained={res.epochs_trained}/{EPOCHS}")
-    print(f"loss(train_last_epoch)={res.train_loss:.6f}  loss(val_last_epoch)={res.val_loss:.6f}")
-    print(f"mse(test)={res.test_mse:.6f}  mae(test)={res.test_mae:.6f}  rmse(test)={res.test_rmse:.6f}")
-    print(f"plot_saved={res.plot_path}")
-    print(f"error_hist_saved={res.error_hist_path}")
-    print(f"loss_curve_saved={res.loss_curve_path}")
+        print(f"\n[{res.dataset_name} | {res.model_name}]")
+        print(f"epochs_trained={res.epochs_trained}/{EPOCHS}")
+        print(f"loss(train_last_epoch)={res.train_loss:.6f}  loss(val_last_epoch)={res.val_loss:.6f}")
+        print(f"mse(test)={res.test_mse:.6f}  mae(test)={res.test_mae:.6f}  rmse(test)={res.test_rmse:.6f}")
+        print(f"plot_saved={res.plot_path}")
+        print(f"error_hist_saved={res.error_hist_path}")
+        print(f"loss_curve_saved={res.loss_curve_path}")
 
 
 if __name__ == "__main__":
